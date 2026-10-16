@@ -1,0 +1,40 @@
+name: Build HARDWARETRAP VST3 (Windows x64)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure (CMake, x64)
+        run: cmake -S . -B build -A x64
+
+      - name: Build (Release)
+        run: cmake --build build --config Release --parallel
+
+      - name: Verify VST3 exists
+        shell: pwsh
+        run: |
+          $p = "build/HARDWARETRAP_artefacts/Release/VST3/HARDWARETRAP.vst3"
+          if (-not (Test-Path $p)) { Get-ChildItem -Recurse build -Filter *.vst3 | Select-Object FullName; throw "HARDWARETRAP.vst3 no encontrado" }
+          Get-ChildItem -Recurse $p | Select-Object FullName, Length
+
+      - name: Package ZIP
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item -Recurse "build/HARDWARETRAP_artefacts/Release/VST3/HARDWARETRAP.vst3" dist/
+          Copy-Item README.md dist/
+          Compress-Archive -Path dist/* -DestinationPath HARDWARETRAP-VST3-win64.zip -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: HARDWARETRAP-VST3-win64
+          path: HARDWARETRAP-VST3-win64.zip
